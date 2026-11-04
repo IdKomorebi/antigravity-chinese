@@ -7,11 +7,10 @@ Antigravity CLI (agy v1.5.0) 中文增强与渲染修复二进制补丁引擎
 - 在隔离目录 ~/projects/antigravity-chinese/bin/ 下生成备份 agy.orig 与中文增强版 agy-zh；
 - 绝不修改用户正在使用的 ~/.local/bin/agy。
 
-四大核心代码补丁模块（保留原版英文外框标签，括号内与下方内容完整显示中文）：
-1. [代码补丁 @ 0x9b9b78d (51B)] 解锁 Bash/Ran 工具调用括号内优先显示中文 toolSummary（为空时回退显示 CommandLine）
-2. [代码补丁 @ 0x9ba38a2 (6B)]  解除单步思考过程（Thought for Xs, Y tokens）单行 '...' 截断，默认完整多行展示
-3. [代码补丁 @ 0x9b8c779 (5B)]  解除折叠工具组（○ Thought for Xs (...)）括号内思考总结的 '...' 腰斩截断
-4. [代码补丁 @ 0x9aaeb20 (23B)] Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与弯引号右侧吞字
+三大核心代码补丁模块（完美复刻 Codex / Claude Code 清爽体验）：
+1. [代码补丁 @ 0x9b9b78d (51B)] 解锁 Ran/Bash 工具调用括号内优先显示中文 toolSummary（为空时回退显示 CommandLine）
+2. [代码补丁 @ 0x9b8c749 (3B)]  保持 Thought 默认折叠，并隐藏折叠组 '○ Thought for Xs' 后方冗余的英文截断尾巴
+3. [代码补丁 @ 0x9aaeb20 (23B)] Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与弯引号右侧吞字
 """
 
 import argparse
@@ -42,7 +41,7 @@ def get_patches() -> List[BinaryPatch]:
     patches: List[BinaryPatch] = []
 
     # =========================================================================
-    # 1. Bash 工具调用优先显示中文 toolSummary (0x9b9b78d ~ 0x9b9b7bf, 51 字节)
+    # 1. Bash/Ran 工具调用优先显示中文 toolSummary (0x9b9b78d ~ 0x9b9b7bf, 51 字节)
     # =========================================================================
     orig_bash = bytes.fromhex(
         "498b134885d2740a488b7208488b7a10eb0431ff31f64885ff7515"
@@ -71,33 +70,23 @@ def get_patches() -> List[BinaryPatch]:
         offset=0x9b9b78d,
         original=orig_bash,
         patched=patched_bash,
-        description="解锁 Bash 工具调用优先显示中文 toolSummary，为空时回退显示命令行",
+        description="解锁 Ran/Bash 工具调用优先显示中文 toolSummary，为空时回退显示命令行",
     ))
 
     # =========================================================================
-    # 2. 解除单步思考过程单行 '...' 截断 (0x9ba38a2, 6 字节)
+    # 2. 隐藏折叠工具组 '○ Thought for Xs (...)' 括号内冗余的英文截断摘要 (0x9b8c749, 3 字节)
+    # 配合默认折叠的 '▸ Thought for Xs, Y tokens'，由下方带蓝色链接的中文进度简报呈现思考脉络
     # =========================================================================
     patches.append(BinaryPatch(
-        name="thinking_full_multiline",
-        offset=0x9ba38a2,
-        original=bytes.fromhex("0f842e010000"),
-        patched=bytes.fromhex("909090909090"),
-        description="解除单步思考过程单行 '...' 截断，默认完整多行展示全部思考内容",
+        name="clean_collapsed_thought_header",
+        offset=0x9b8c749,
+        original=bytes.fromhex("4885db"),        # test %rbx, %rbx
+        patched=bytes.fromhex("31db90"),         # xor %ebx, %ebx; nop (使紧随其后的 je 0x9b8c847 恒成立)
+        description="隐藏 '○ Thought for Xs' 后方括号内被截断的英文草稿，保持界面清爽并由中文进度简报接管",
     ))
 
     # =========================================================================
-    # 3. 解除折叠工具组 '○ 已思考 Xs (...)' 括号内思考总结的 '...' 截断 (0x9b8c779, 5 字节)
-    # =========================================================================
-    patches.append(BinaryPatch(
-        name="collapsed_thinking_no_truncate",
-        offset=0x9b8c779,
-        original=bytes.fromhex("e882edffff"),    # callq 0x9b8b500 (fitDetailText)
-        patched=bytes.fromhex("0f1f440000"),     # 5-byte nop (保留完整思考总结让外层自动折行)
-        description="解除折叠态 '○ 已思考 Xs (...)' 括号内思考摘要的 '...' 截断，自动多行完整显示",
-    ))
-
-    # =========================================================================
-    # 4. Markdown 自动折行预留 4 列安全右边距 (0x9aaeb20, 23 字节)
+    # 3. Markdown 自动折行预留 4 列安全右边距 (0x9aaeb20, 23 字节)
     # =========================================================================
     patches.append(BinaryPatch(
         name="markdown_safe_wordwrap_margin",
@@ -158,7 +147,6 @@ def apply_patches(source_path: str, backup_path: str, target_path: str, dry_run:
         print("\n[干跑完成] 所有位点校验 100% 通过（未写入文件）。")
         return
 
-    # 使用临时文件 + os.replace 原子替换，支持在 agy-zh 正在运行时无缝热更新
     tmp_path = f"{target_path}.tmp.{os.getpid()}"
     with open(tmp_path, "wb") as f:
         f.write(data)

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Proxy only Antigravity CLI and its child processes.
+# This uses application proxy variables, not kernel-level network isolation.
+set -euo pipefail
+
+proxy_url="${AGY_PROXY_URL:-http://127.0.0.1:31019}"
+real_agy="$HOME/.local/bin/agy"
+
+if [[ ! -x "$real_agy" ]]; then
+    printf 'Antigravity executable not found: %s\n' "$real_agy" >&2
+    exit 127
+fi
+
+case "$proxy_url" in
+    http://*|https://*) ;;
+    *) printf 'AGY_PROXY_URL must be an HTTP(S) proxy URL.\n' >&2; exit 2 ;;
+esac
+
+# Explicitly use the proxy for the preflight; an inherited NO_PROXY cannot bypass it.
+if ! curl --proxy "$proxy_url" --noproxy '' --connect-timeout 5 --max-time 12 \
+    --fail --silent --show-error --output /dev/null \
+    https://www.google.com/generate_204; then
+    printf 'Antigravity was not started: proxy connectivity check failed (%s).\n' "$proxy_url" >&2
+    exit 1
+fi
+
+# Set both cases to avoid inheriting conflicting proxy settings.
+export HTTP_PROXY="$proxy_url" HTTPS_PROXY="$proxy_url" ALL_PROXY="$proxy_url"
+export http_proxy="$proxy_url" https_proxy="$proxy_url" all_proxy="$proxy_url"
+# Antigravity uses local services, so loopback must remain direct.
+export NO_PROXY='localhost,127.0.0.1,::1' no_proxy='localhost,127.0.0.1,::1'
+exec "$real_agy" "$@"

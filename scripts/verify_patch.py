@@ -120,11 +120,11 @@ def verify_pty_rendering() -> None:
 
     checks = [
         ("Thought for", "保留原版英文外框标签 ('Thought for %s')"),
-        ("Ran 3 commands (查看南网报告相关目录结构", "保留英文外框 'Ran 3 commands' 且括号内显示中文摘要"),
-        ("Explored 9 files", "保留原版英文外框 ('● Explored 9 files')"),
-        ("Edited 1 file", "保留原版英文外框 ('● Edited 1 file')"),
+        ("Ran (重新生成路线一二次标定效果对比图片)", "解锁 Ran 括号内显示简明中文工具摘要"),
+        ("Explored 1 file", "保留原版英文外框 ('● Explored 1 file')"),
+        ("Edited 2 files", "保留原版英文外框 ('● Edited 2 files')"),
         ("ctrl+o to expand", "保留原版英文快捷键提示 ('ctrl+o to expand')"),
-        ("准备以清晰的中文向用户汇报并提供生成的文件链接。)", "折叠态括号内中文思考摘要完整展示（未被 '...' 截断）"),
+        ("我将先重新绘制路线一的二次标定效果对比图", "展示带文件链接的 Codex/Claude 风格中文思考与行动简报"),
         ("判定，无法反映多个低敏字段组合后的互补效应", "Markdown 中文引用块右侧不吞字（保留完整 '判定，无法反映'）"),
     ]
 
@@ -134,14 +134,8 @@ def verify_pty_rendering() -> None:
 
     print("\n--- 真实终端渲染抽样展示 (摘自会话回放) ---")
     for i, line in enumerate(lines1):
-        if "Thought for 20m 24s" in line:
-            for s in lines1[i : i + 8]:
-                print("  " + s)
-            break
-    print("  ...")
-    for i, line in enumerate(lines1):
-        if "Thought for 3m 21s" in line:
-            for s in lines1[i : i + 4]:
+        if "我将先重新绘制路线一" in line:
+            for s in lines1[max(0, i - 1) : i + 20]:
                 print("  " + s)
             break
 
