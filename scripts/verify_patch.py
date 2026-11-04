@@ -119,13 +119,12 @@ def verify_pty_rendering() -> None:
     joined1 = "\n".join(lines1)
 
     checks = [
-        ("思考耗时", "展开态思考耗时词条汉化 ('思考耗时 %s, %s词元')"),
-        ("已思考", "折叠态已思考词条汉化 ('○ 已思考 %s')"),
-        ("执行 3条命令", "工具组命令汇总汉化 ('● 执行 3条命令')"),
-        ("查阅 9文件", "工具组文件查阅汉化 ('● 查阅 9文件')"),
-        ("编辑 文件", "工具组文件编辑汉化 ('● 编辑 文件')"),
-        ("按ctrl+o 展开", "快捷键提示词汉化 ('按ctrl+o 展开')"),
-        ("准备以清晰的中文向用户汇报并提供生成的文件链接。)", "折叠态思考摘要完整展示（未被 '...' 截断）"),
+        ("Thought for", "保留原版英文外框标签 ('Thought for %s')"),
+        ("Ran 3 commands (查看南网报告相关目录结构", "保留英文外框 'Ran 3 commands' 且括号内显示中文摘要"),
+        ("Explored 9 files", "保留原版英文外框 ('● Explored 9 files')"),
+        ("Edited 1 file", "保留原版英文外框 ('● Edited 1 file')"),
+        ("ctrl+o to expand", "保留原版英文快捷键提示 ('ctrl+o to expand')"),
+        ("准备以清晰的中文向用户汇报并提供生成的文件链接。)", "折叠态括号内中文思考摘要完整展示（未被 '...' 截断）"),
         ("判定，无法反映多个低敏字段组合后的互补效应", "Markdown 中文引用块右侧不吞字（保留完整 '判定，无法反映'）"),
     ]
 
@@ -135,13 +134,13 @@ def verify_pty_rendering() -> None:
 
     print("\n--- 真实终端渲染抽样展示 (摘自会话回放) ---")
     for i, line in enumerate(lines1):
-        if "已思考 20m 24s" in line:
+        if "Thought for 20m 24s" in line:
             for s in lines1[i : i + 8]:
                 print("  " + s)
             break
     print("  ...")
     for i, line in enumerate(lines1):
-        if "思考耗时 3m 21s" in line:
+        if "Thought for 3m 21s" in line:
             for s in lines1[i : i + 4]:
                 print("  " + s)
             break

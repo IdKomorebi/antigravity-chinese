@@ -7,12 +7,11 @@ Antigravity CLI (agy v1.5.0) 中文增强与渲染修复二进制补丁引擎
 - 在隔离目录 ~/projects/antigravity-chinese/bin/ 下生成备份 agy.orig 与中文增强版 agy-zh；
 - 绝不修改用户正在使用的 ~/.local/bin/agy。
 
-五大核心补丁模块（共 24 个精确位点）：
-1. [代码补丁 @ 0x9b9b78d (51B)] 解锁 Bash 工具调用优先显示中文 toolSummary（为空时回退显示 CommandLine）
-2. [代码补丁 @ 0x9ba38a2 (6B)]  解除展开态/单步思考过程（Thinking）单行 '...' 截断，默认完整多行展示
-3. [代码补丁 @ 0x9b8c779 (5B)]  解除折叠工具组（○ 已思考 Xs (...)）括号内思考总结的 '...' 腰斩截断
+四大核心代码补丁模块（保留原版英文外框标签，括号内与下方内容完整显示中文）：
+1. [代码补丁 @ 0x9b9b78d (51B)] 解锁 Bash/Ran 工具调用括号内优先显示中文 toolSummary（为空时回退显示 CommandLine）
+2. [代码补丁 @ 0x9ba38a2 (6B)]  解除单步思考过程（Thought for Xs, Y tokens）单行 '...' 截断，默认完整多行展示
+3. [代码补丁 @ 0x9b8c779 (5B)]  解除折叠工具组（○ Thought for Xs (...)）括号内思考总结的 '...' 腰斩截断
 4. [代码补丁 @ 0x9aaeb20 (23B)] Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与弯引号右侧吞字
-5. [数据/指令补丁 @ .rodata]    全套界面提示词与工具调用汇总（思考耗时/已思考/执行/查阅/编辑/展开/收起）原生汉化
 """
 
 import argparse
@@ -108,181 +107,6 @@ def get_patches() -> List[BinaryPatch]:
         description="为 Glamour Markdown 折行预留 4 列右边距，根治中文引用块与弯引号右侧吞字",
     ))
 
-    # =========================================================================
-    # 5. 思考状态与快捷键界面词条汉化
-    # =========================================================================
-    patches.append(BinaryPatch(
-        name="rodata_thought_for_tokens",
-        offset=0x5e993e1,
-        original=b"Thought for %s, %s tokens",
-        patched="思考耗时 %s, %s词元".encode("utf-8"),
-        description='界面词条汉化: "Thought for %s, %s tokens" -> "思考耗时 %s, %s词元"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_thought_for_sec",
-        offset=0x5dcd5ab,
-        original=b"Thought for %s",
-        patched="已思考 %s  ".encode("utf-8"),
-        description='界面词条汉化: "Thought for %s" -> "已思考 %s"',
-    ))
-    patches.append(BinaryPatch(
-        name="text_thought_for_sec_len1",
-        offset=0x9b8e8fb,
-        original=bytes.fromhex("bb0e000000"),
-        patched=bytes.fromhex("bb0c000000"),
-        description='修正 "已思考 %s" 长度立即数 (14 -> 12) @ 0x9b8e8fb',
-    ))
-    patches.append(BinaryPatch(
-        name="text_thought_for_sec_len2",
-        offset=0x9ba3868,
-        original=bytes.fromhex("bb0e000000"),
-        patched=bytes.fromhex("bb0c000000"),
-        description='修正 "已思考 %s" 长度立即数 (14 -> 12) @ 0x9ba3868',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_thought_for_subsec",
-        offset=0x5e0c3d0,
-        original=b"Thought for %.1fs",
-        patched="思考用时%.1fs".encode("utf-8"),
-        description='界面词条汉化: "Thought for %.1fs" -> "思考用时%.1fs"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_thought_process",
-        offset=0x5de2f8d,
-        original=b"Thought Process",
-        patched="思考与推理".encode("utf-8"),
-        description='界面词条汉化: "Thought Process" -> "思考与推理"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_ctrlo_expand",
-        offset=0x5df8047,
-        original=b"ctrl+o to expand",
-        patched="按ctrl+o 展开".encode("utf-8"),
-        description='界面词条汉化: "ctrl+o to expand" -> "按ctrl+o 展开"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_ctrlo_collapse",
-        offset=0x5e1f269,
-        original=b"ctrl+o to collapse",
-        patched="按ctrl+o可收起".encode("utf-8"),
-        description='界面词条汉化: "ctrl+o to collapse" -> "按ctrl+o可收起"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_ctrlo_collapse_parens",
-        offset=0x5e438fe,
-        original=b"(ctrl+o to collapse)",
-        patched="(按ctrl+o可收起)".encode("utf-8"),
-        description='界面词条汉化: "(ctrl+o to collapse)" -> "(按ctrl+o可收起)"',
-    ))
-
-    # =========================================================================
-    # 6. 工具调用汇总（Ran / Explored / Edited / commands / files）原生汉化
-    # =========================================================================
-    # 6.1 Edited -> 编辑 (6B), 1 file -> 文件 (6B), 2 files -> 2文件 (7B), %d files -> %d文件 (8B)
-    patches.append(BinaryPatch(
-        name="rodata_edited",
-        offset=0x5d0bd04,
-        original=b"Edited",
-        patched="编辑".encode("utf-8"),
-        description='工具汇总汉化: "Edited" -> "编辑"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_1_file",
-        offset=0x5d0bcf8,
-        original=b"1 file",
-        patched="文件".encode("utf-8"),
-        description='工具汇总汉化: "1 file" -> "文件"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_2_files",
-        offset=0x5d1df9d,
-        original=b"2 files",
-        patched="2文件".encode("utf-8"),
-        description='工具汇总汉化: "2 files" -> "2文件"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_d_files",
-        offset=0x5d34eca,
-        original=b"%d files",
-        patched="%d文件".encode("utf-8"),
-        description='工具汇总汉化: "%d files" -> "%d文件"',
-    ))
-
-    # 6.2 Explored (8B) -> 查阅 (6B) + Exploring (9B) -> 正查阅 (9B)
-    patches.append(BinaryPatch(
-        name="rodata_explored",
-        offset=0x5d34eea,
-        original=b"Explored",
-        patched="查阅  ".encode("utf-8"),
-        description='工具汇总汉化: "Explored" -> "查阅"',
-    ))
-    patches.append(BinaryPatch(
-        name="text_explored_len",
-        offset=0x9b91cb2,
-        original=bytes.fromhex("ba08000000"),
-        patched=bytes.fromhex("ba06000000"),
-        description='修正 "查阅" 长度立即数 (8 -> 6) @ 0x9b91cb2',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_exploring",
-        offset=0x5d4d012,
-        original=b"Exploring",
-        patched="正查阅".encode("utf-8"),
-        description='工具汇总汉化: "Exploring" -> "正查阅"',
-    ))
-
-    # 6.3 Running/Ran -> 执行 (6B), 1 command -> 单命令 (9B), %d commands -> %d条命令 (11B), %s %d commands -> %s %d条命令 (14B)
-    patches.append(BinaryPatch(
-        name="rodata_running_to_zhixing",
-        offset=0x5d1d09a,
-        original=b"Running",
-        patched="执行 ".encode("utf-8"),
-        description='工具汇总汉化: "Running" / "Ran" -> "执行"',
-    ))
-    # 将 3 处 Ran/Running 选择逻辑统一指向 0x5d1d09a ("执行", len=6)
-    patches.append(BinaryPatch(
-        name="text_ran_ref1",
-        offset=0x9b95035,
-        original=bytes.fromhex("b80300000041bf070000004d0f45c74c894424604c8d3d936715fc"),
-        patched=bytes.fromhex("b80600000041bf060000004d0f45c74c894424604c8d3d4a8018fc"),
-        description='重定向第 1 处 "Ran" 引用至 "执行" (len=6) @ 0x9b95035',
-    ))
-    patches.append(BinaryPatch(
-        name="text_ran_ref2",
-        offset=0x9b95254,
-        original=bytes.fromhex("ba03000000bb07000000480f45d34889542450488d1d756515fc"),
-        patched=bytes.fromhex("ba06000000bb06000000480f45d34889542450488d1d2c7e18fc"),
-        description='重定向第 2 处 "Ran" 引用至 "执行" (len=6) @ 0x9b95254',
-    ))
-    patches.append(BinaryPatch(
-        name="text_ran_ref3",
-        offset=0x9b952a5,
-        original=bytes.fromhex("41b80300000041b9070000004d0f45c14c8d0d276515fc"),
-        patched=bytes.fromhex("41b80600000041b9060000004d0f45c14c8d0dde7d18fc"),
-        description='重定向第 3 处 "Ran" 引用至 "执行" (len=6) @ 0x9b952a5',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_1_command",
-        offset=0x5d4d051,
-        original=b"1 command",
-        patched="单命令".encode("utf-8"),
-        description='工具汇总汉化: "1 command" -> "单命令"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_d_commands",
-        offset=0x5d81991,
-        original=b"%d commands",
-        patched="%d条命令".encode("utf-8"),
-        description='工具汇总汉化: "%d commands" -> "%d条命令"',
-    ))
-    patches.append(BinaryPatch(
-        name="rodata_s_d_commands",
-        offset=0x5dcd5b9,
-        original=b"%s %d commands",
-        patched="%s %d条命令".encode("utf-8"),
-        description='工具汇总汉化: "%s %d commands" -> "%s %d条命令"',
-    ))
-
     for p in patches:
         assert len(p.original) == len(p.patched), f"Patch {p.name} length mismatch!"
     return patches
@@ -334,10 +158,13 @@ def apply_patches(source_path: str, backup_path: str, target_path: str, dry_run:
         print("\n[干跑完成] 所有位点校验 100% 通过（未写入文件）。")
         return
 
-    with open(target_path, "wb") as f:
+    # 使用临时文件 + os.replace 原子替换，支持在 agy-zh 正在运行时无缝热更新
+    tmp_path = f"{target_path}.tmp.{os.getpid()}"
+    with open(tmp_path, "wb") as f:
         f.write(data)
     st = os.stat(source_path)
-    os.chmod(target_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    os.chmod(tmp_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    os.replace(tmp_path, target_path)
 
     orig_hash = sha256_file(source_path)
     new_hash = sha256_file(target_path)

@@ -17,7 +17,7 @@
 | **1. 思考过程（Thinking）经常变成英文** | Gemini 云端开启了二级 **Thought Summarizer（推理摘要器）**。只要模型思考中夹杂了英文过渡词（如 `Let's check`）或复述英文 Prompt，云端摘要器就会将整段思考重写为第三人称英文。 | **融合 Codex 与 Claude 最佳实践规则**：强制模型采用极简中文笔记体思考，消除英文触发词，并在连续工具调用间穿插 1~2 句中文进度简报。 |
 | **2. 思考过程总被单行 `...` 腰斩截断** | 客户端 `stepContent` (`0x9ba38a2`) 与 `renderCollapsedToolGroup` (`0x9b8c779`) 默认调用单行截断函数，只取最后一段并硬截断为 `...`。 | **二进制无损补丁**：绕过单行截断分支，让单步思考与折叠组 `○ 已思考 Xs (...)` 均**默认完整、多行自动折行展示**。 |
 | **3. `Bash(...)` 只显示冗长生硬的命令行** | 实际上工具参数里**本来就有必填的 `toolSummary` 字段**，且二进制内已有提取函数 `toolSummaryFromMetadata` (`0x9b9ed80`)，但官方在 `Bash` 渲染分支 (`0x9b9b78d`) 漏调了该函数，硬编码读取了原始命令行！ | **51 字节原位汇编补丁**：优先调用 `toolSummaryFromMetadata` 显示简明中文目的（如 `● Bash(重新生成V6完整版文档与目录)`），无摘要时自动安全回退显示命令行。 |
-| **4. 界面全英文 & 中文引用块右侧吞字** | UI 词条硬编码在 `.rodata` 段；`glamour` 在计算中文弯引号（`“”`）与 `> ` 引用竖线宽度时存在东亚模糊宽度误差，超出终端右边界导致吞字。 | **`.rodata` 原生汉化 + 折行安全边距补丁**：汉化 23 处高频词条（`思考耗时`、`已思考`、`执行`、`查阅`、`编辑`、`按ctrl+o 展开`），并为 Markdown 折行预留 4 列安全右边距，彻底根治吞字。 |
+| **4. 中文引用块在终端右侧吞字** | `glamour` 在计算中文弯引号（`“”`）与 `> ` 引用竖线宽度时存在东亚模糊宽度误差，超出终端右边界导致吞字。 | **折行安全边距补丁 (`0x9aaeb20`)**：保留清爽的原版英文外框标签（`Thought for Xs`、`Ran`、`Edited`），并为 Markdown 折行预留 4 列安全右边距，彻底根治吞字。 |
 
 ---
 
@@ -34,15 +34,15 @@
   The observed difference in hyperlink representation between the two files is significant. It seems the second file is...
 ```
 
-### 改造后（本项目 `agy-zh` + 增强中文规则）
+### 改造后（本项目 `agy-zh`：英文外框标签 + 括号内完整中文摘要与思考）
 ```text
-○ 已思考 20m 24s (清理了临时文件。接下来，将整理基于 `original2`
+○ Thought for 20m 24s (清理了临时文件。接下来，将整理基于 `original2`
 的所有修改，包括对比、编辑、排版和视觉验证，准备以清晰的中文向用户汇报并提供生成的文件链接。)
-● 执行 3条命令 (查看南网报告相关目录结构 · 列出相关目录下的所有文件 · 查看V4和报告_v6的文件列表)
-● 查阅 9文件 (README.md, README.md, README.md, +6)
-● 编辑 文件 (README.md) (按ctrl+o 展开)
+● Ran 3 commands (查看南网报告相关目录结构 · 列出相关目录下的所有文件 · 查看V4和报告_v6的文件列表)
+● Explored 9 files (README.md, README.md, README.md, +6)
+● Edited 1 file (README.md) (ctrl+o to expand)
 ...
-▾ 思考耗时 3m 21s, 1.7k词元
+▾ Thought for 3m 21s, 1.7k tokens
   已完成图像目录与脚本结构的核对。接下来首先加载原始实验数据并进行预处理，随后生成第五章对比图表并保存至指定目录。
 ```
 
