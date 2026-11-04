@@ -1,0 +1,16 @@
+# 忽略本地生成的 Antigravity CLI 二进制副本（约 250MB，由脚本在用户本机自动生成）
+bin/agy
+bin/agy.orig
+bin/agy-zh
+bin/*.bak
+bin/*.tmp
+
+# 忽略本地规则备份文件
+rules/*.bak
+
+# 忽略 Python 缓存与临时文件
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+*.swp

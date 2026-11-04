@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Antigravity CLI 中文增强版（隔离环境专用代理启动脚本）
+# 本脚本仅启动当前隔离目录下的 ./bin/agy-zh，绝不修改或影响用户原有的 ~/.local/bin/agy
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+proxy_url="${AGY_PROXY_URL:-http://127.0.0.1:31019}"
+real_agy="${SCRIPT_DIR}/agy-zh"
+
+if [[ ! -x "$real_agy" ]]; then
+    printf '未找到中文增强版可执行文件: %s（请先运行 python3 scripts/patch_agy.py）\n' "$real_agy" >&2
+    exit 127
+fi
+
+case "$proxy_url" in
+    http://*|https://*) ;;
+    *) printf 'AGY_PROXY_URL 必须是合法的 HTTP(S) 代理地址。\n' >&2; exit 2 ;;
+esac
+
+if ! curl --proxy "$proxy_url" --noproxy '' --connect-timeout 5 --max-time 12 \
+    --fail --silent --show-error --output /dev/null \
+    https://www.google.com/generate_204; then
+    printf 'Antigravity 未启动：代理连通性检查失败 (%s)。\n' "$proxy_url" >&2
+    exit 1
+fi
+
+export HTTP_PROXY="$proxy_url" HTTPS_PROXY="$proxy_url" ALL_PROXY="$proxy_url"
+export http_proxy="$proxy_url" https_proxy="$proxy_url" all_proxy="$proxy_url"
+export NO_PROXY='localhost,127.0.0.1,::1' no_proxy='localhost,127.0.0.1,::1'
+exec "$real_agy" "$@"
