@@ -120,7 +120,7 @@ def verify_pty_rendering() -> None:
 
     checks = [
         ("Thought for", "保留原版英文外框标签 ('Thought for %s')"),
-        ("Ran (重新生成路线一二次标定效果对比图片)", "解锁 Ran 括号内显示简明中文工具摘要"),
+        ("Ran (/usr/bin/python3", "保留 Ran 括号内真实执行的原始命令"),
         ("Explored 1 file", "保留原版英文外框 ('● Explored 1 file')"),
         ("Edited 2 files", "保留原版英文外框 ('● Edited 2 files')"),
         ("ctrl+o to expand", "保留原版英文快捷键提示 ('ctrl+o to expand')"),

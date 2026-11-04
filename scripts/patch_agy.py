@@ -7,10 +7,9 @@ Antigravity CLI (agy v1.5.0) 中文增强与渲染修复二进制补丁引擎
 - 在隔离目录 ~/projects/antigravity-chinese/bin/ 下生成备份 agy.orig 与中文增强版 agy-zh；
 - 绝不修改用户正在使用的 ~/.local/bin/agy。
 
-三大核心代码补丁模块（完美复刻 Codex / Claude Code 清爽体验）：
-1. [代码补丁 @ 0x9b9b78d (51B)] 解锁 Ran/Bash 工具调用括号内优先显示中文 toolSummary（为空时回退显示 CommandLine）
-2. [代码补丁 @ 0x9b8c749 (3B)]  保持 Thought 默认折叠，并隐藏折叠组 '○ Thought for Xs' 后方冗余的英文截断尾巴
-3. [代码补丁 @ 0x9aaeb20 (23B)] Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与弯引号右侧吞字
+核心二进制修复模块：
+1. [代码补丁 @ 0x9aaeb20 (23B)] Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与弯引号右侧吞字
+（注：界面所有标签、Ran (command) 括号内的原始命令、以及 Thought for xx s (sentence) 括号结构均 100% 保持官方原生专业样式）
 """
 
 import argparse
@@ -41,52 +40,7 @@ def get_patches() -> List[BinaryPatch]:
     patches: List[BinaryPatch] = []
 
     # =========================================================================
-    # 1. Bash/Ran 工具调用优先显示中文 toolSummary (0x9b9b78d ~ 0x9b9b7bf, 51 字节)
-    # =========================================================================
-    orig_bash = bytes.fromhex(
-        "498b134885d2740a488b7208488b7a10eb0431ff31f64885ff7515"
-        "4885d2740a488b7218488b5220eb0931d231f6eb034889fa"
-    )
-    patched_bash = bytes.fromhex(
-        "e8ee350000"          # callq 0x9b9ed80 (toolSummaryFromMetadata)
-        "4885db"              # test %rbx, %rbx
-        "7408"                # je 0x9b9b79f (fallback to CommandLine)
-        "4889c6"              # mov %rax, %rsi
-        "4889da"              # mov %rbx, %rdx
-        "eb21"                # jmp 0x9b9b7c0
-        "488b942490010000"    # mov 0x190(%rsp), %rdx
-        "488b12"              # mov (%rdx), %rdx
-        "4885d2"              # test %rdx, %rdx
-        "740a"                # je 0x9b9b7b9
-        "488b7208"            # mov 0x8(%rdx), %rsi
-        "488b5210"            # mov 0x10(%rdx), %rdx
-        "eb07"                # jmp 0x9b9b7c0
-        "31d2"                # xor %edx, %edx
-        "31f6"                # xor %esi, %esi
-        "0f1f00"              # nopl (%rax)
-    )
-    patches.append(BinaryPatch(
-        name="bash_prefer_tool_summary",
-        offset=0x9b9b78d,
-        original=orig_bash,
-        patched=patched_bash,
-        description="解锁 Ran/Bash 工具调用优先显示中文 toolSummary，为空时回退显示命令行",
-    ))
-
-    # =========================================================================
-    # 2. 隐藏折叠工具组 '○ Thought for Xs (...)' 括号内冗余的英文截断摘要 (0x9b8c749, 3 字节)
-    # 配合默认折叠的 '▸ Thought for Xs, Y tokens'，由下方带蓝色链接的中文进度简报呈现思考脉络
-    # =========================================================================
-    patches.append(BinaryPatch(
-        name="clean_collapsed_thought_header",
-        offset=0x9b8c749,
-        original=bytes.fromhex("4885db"),        # test %rbx, %rbx
-        patched=bytes.fromhex("31db90"),         # xor %ebx, %ebx; nop (使紧随其后的 je 0x9b8c847 恒成立)
-        description="隐藏 '○ Thought for Xs' 后方括号内被截断的英文草稿，保持界面清爽并由中文进度简报接管",
-    ))
-
-    # =========================================================================
-    # 3. Markdown 自动折行预留 4 列安全右边距 (0x9aaeb20, 23 字节)
+    # 1. Markdown 自动折行预留 4 列安全右边距 (0x9aaeb20, 23 字节)
     # =========================================================================
     patches.append(BinaryPatch(
         name="markdown_safe_wordwrap_margin",
