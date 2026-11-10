@@ -1,104 +1,153 @@
 #!/usr/bin/env bash
-# Antigravity CLI 中文增强版 — 状态检查、规则应用与安全切换工具
+# Antigravity CLI 中文原生思考合流套件 — 状态检查、规则应用与安全切换工具 (跨平台版)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ORIG_AGY="$(command -v agy 2>/dev/null || echo "$HOME/.local/bin/agy")"
-BACKUP_AGY="$PROJECT_ROOT/bin/agy.orig"
-ZH_AGY="$PROJECT_ROOT/bin/agy-zh"
-ZH_PROXY="$PROJECT_ROOT/bin/agy-zh-proxy"
-GLOBAL_RULE="$HOME/.gemini/GEMINI.md"
-BACKUP_RULE="$PROJECT_ROOT/rules/GEMINI.md.bak"
-ENHANCED_RULE="$PROJECT_ROOT/rules/GEMINI_ZH_BEST_PRACTICES.md"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+AGY_BIN="$(command -v agy 2>/dev/null || echo "${HOME}/.local/bin/agy")"
+ORIG_BIN="${PROJECT_ROOT}/bin/agy.orig"
+ZH_BIN="${PROJECT_ROOT}/bin/agy-zh"
+RULE_SRC="${PROJECT_ROOT}/rules/GEMINI_ZH_BEST_PRACTICES.md"
+GLOBAL_CONFIG_DIR="${HOME}/.gemini/config"
+GLOBAL_CONFIG_RULE="${GLOBAL_CONFIG_DIR}/GEMINI.md"
+HOME_GEMINI_RULE="${HOME}/.gemini/GEMINI.md"
+BACKUP_RULE="${PROJECT_ROOT}/rules/GEMINI.md.bak"
 
-show_status() {
-    echo "============================================================"
-    echo "       Antigravity CLI 中文增强工程状态检查"
-    echo "============================================================"
-    if [[ -f "$ORIG_AGY" ]]; then
-        echo "[原版 CLI]     $ORIG_AGY (SHA256: $(sha256sum "$ORIG_AGY" | awk '{print substr($1,1,16)}'))..."
+calc_sha256() {
+    local target="$1"
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "${target}" | awk '{print $1}'
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "${target}" | awk '{print $1}'
+    else
+        python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "${target}"
     fi
-    if [[ -f "$BACKUP_AGY" ]]; then
-        echo "[隔离备份]     $BACKUP_AGY (SHA256: $(sha256sum "$BACKUP_AGY" | awk '{print substr($1,1,16)}'))..."
-    fi
-    if [[ -f "$ZH_AGY" ]]; then
-        echo "[中文增强版]   $ZH_AGY (SHA256: $(sha256sum "$ZH_AGY" | awk '{print substr($1,1,16)}'))..."
-    fi
-    echo "------------------------------------------------------------"
-    if [[ -f "$ORIG_AGY" && -f "$BACKUP_AGY" ]]; then
-        if cmp -s "$ORIG_AGY" "$BACKUP_AGY"; then
-            echo "[当前模式]     隔离安全模式（~/.local/bin/agy 仍为 100% 原版二进制）"
-        elif cmp -s "$ORIG_AGY" "$ZH_AGY"; then
-            echo "[当前模式]     全局中文增强模式（~/.local/bin/agy 已切换为中文增强版）"
-        else
-            echo "[当前模式]     未知/已更新版本（请重新运行 patch_agy.py）"
-        fi
-    fi
-    if [[ -f "$GLOBAL_RULE" && -f "$ENHANCED_RULE" ]]; then
-        if cmp -s "$GLOBAL_RULE" "$ENHANCED_RULE"; then
-            echo "[全局规则]     已启用增强版中文规范 (Codex + Claude Code 融合版)"
-        else
-            echo "[全局规则]     当前为原有规则（未覆盖，可通过 '$0 apply-rules' 启用增强规则）"
-        fi
-    fi
-    echo "============================================================"
 }
 
-apply_rules() {
-    mkdir -p "$(dirname "$GLOBAL_RULE")"
-    if [[ -f "$GLOBAL_RULE" && ! -f "$BACKUP_RULE" ]]; then
-        cp -p "$GLOBAL_RULE" "$BACKUP_RULE"
-        echo "[备份] 已将原有 ~/.gemini/GEMINI.md 备份至: $BACKUP_RULE"
-    fi
-    cp "$ENHANCED_RULE" "$GLOBAL_RULE"
-    if [[ -x "$HOME/miniconda3/bin/tectonic" ]]; then
-        printf '\n- **LaTeX 编译工具**：本机已安装 Tectonic（路径：`%s/miniconda3/bin/tectonic`），将 LaTeX 编译为 PDF 时可直接使用 Tectonic。\n' "$HOME" >> "$GLOBAL_RULE"
-    fi
-    echo "[成功] 已将 Codex + Claude Code 融合版中文规范写入: $GLOBAL_RULE"
+usage() {
+    cat <<EOF
+用法: $(basename "$0") <命令>
+
+命令:
+  enable         启用全局中文增强版 (保留官方原生 Thought for 标签，底层合流自然中文思考)
+  enable-ui      启用全量 UI 汉化模式 (同时汉化 Thought for / ctrl+o 等界面状态词条)
+  enable-global  同 enable (向下兼容原脚本参数)
+  apply-rules    仅挂载全局中文思考规则 (~/.gemini/config/GEMINI.md & ~/.gemini/GEMINI.md)
+  disable        完全恢复官方原版 agy 二进制与原有规则配置
+  restore        同 disable (向下兼容原脚本参数)
+  status         查看当前 agy 二进制、代码签名与全局中文规则状态
+EOF
 }
 
-enable_global() {
-    if [[ ! -x "$ZH_AGY" ]]; then
-        echo "[错误] 尚未生成 $ZH_AGY，请先运行 python3 scripts/patch_agy.py" >&2
-        exit 1
+ensure_backup() {
+    mkdir -p "${PROJECT_ROOT}/bin"
+    if [[ ! -f "${ORIG_BIN}" ]]; then
+        if [[ -f "${AGY_BIN}" ]]; then
+            cp -p "${AGY_BIN}" "${ORIG_BIN}"
+            echo "[备份] 已将原版 agy 安全备份至: ${ORIG_BIN}"
+        else
+            echo "[错误] 未找到 ${AGY_BIN}" >&2
+            exit 1
+        fi
     fi
-    if [[ ! -f "$BACKUP_AGY" ]]; then
-        cp -p "$ORIG_AGY" "$BACKUP_AGY"
+}
+
+install_rules() {
+    mkdir -p "${GLOBAL_CONFIG_DIR}"
+    if [[ -f "${HOME_GEMINI_RULE}" && ! -L "${HOME_GEMINI_RULE}" && ! -f "${BACKUP_RULE}" ]]; then
+        cp -p "${HOME_GEMINI_RULE}" "${BACKUP_RULE}"
+        echo "[备份] 已将原有 ~/.gemini/GEMINI.md 备份至: ${BACKUP_RULE}"
     fi
-    # 使用临时文件 + mv 原子替换，防止正在运行的 agy 进程触发 Text file busy
-    cp -p "$ZH_AGY" "${ORIG_AGY}.tmp"
-    mv -f "${ORIG_AGY}.tmp" "$ORIG_AGY"
-    echo "[成功] 已将 ~/.local/bin/agy 原子切换为中文增强版！"
+    ln -sf "${RULE_SRC}" "${GLOBAL_CONFIG_RULE}"
+    ln -sf "${RULE_SRC}" "${HOME_GEMINI_RULE}"
+    echo "[规则] 已挂载全局中文思考规范 -> ${GLOBAL_CONFIG_RULE}"
+}
+
+deploy_zh_bin() {
+    local extra_arg="${1:-}"
+    ensure_backup
+    if [[ -n "${extra_arg}" ]]; then
+        python3 "${SCRIPT_DIR}/patch_agy.py" --source "${ORIG_BIN}" --backup "${ORIG_BIN}" --target "${ZH_BIN}" "${extra_arg}"
+    else
+        python3 "${SCRIPT_DIR}/patch_agy.py" --source "${ORIG_BIN}" --backup "${ORIG_BIN}" --target "${ZH_BIN}"
+    fi
+    local tmp_bin="${AGY_BIN}.tmp.$$"
+    cp -p "${ZH_BIN}" "${tmp_bin}"
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        codesign -f -s - "${tmp_bin}" >/dev/null 2>&1 || true
+    fi
+    mv -f "${tmp_bin}" "${AGY_BIN}"
+    install_rules
+    echo "[完成] 已激活中文增强版: ${AGY_BIN} ($("${AGY_BIN}" --version 2>/dev/null || echo 'OK'))"
 }
 
 restore_original() {
-    if [[ -f "$BACKUP_AGY" ]]; then
-        cp -p "$BACKUP_AGY" "${ORIG_AGY}.tmp"
-        mv -f "${ORIG_AGY}.tmp" "$ORIG_AGY"
-        echo "[还原] 已将 ~/.local/bin/agy 无损恢复为原版二进制。"
+    if [[ -f "${ORIG_BIN}" ]]; then
+        local tmp_bin="${AGY_BIN}.tmp.$$"
+        cp -p "${ORIG_BIN}" "${tmp_bin}"
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            codesign -f -s - "${tmp_bin}" >/dev/null 2>&1 || true
+        fi
+        mv -f "${tmp_bin}" "${AGY_BIN}"
+        echo "[还原] 已恢复原版二进制: ${AGY_BIN}"
+    else
+        echo "[提示] 未找到备份文件 ${ORIG_BIN}，无需恢复二进制"
     fi
-    if [[ -f "$BACKUP_RULE" ]]; then
-        cp -p "$BACKUP_RULE" "$GLOBAL_RULE"
-        echo "[还原] 已将 ~/.gemini/GEMINI.md 恢复为原有规则。"
+    rm -f "${GLOBAL_CONFIG_RULE}" "${HOME_GEMINI_RULE}"
+    if [[ -f "${BACKUP_RULE}" ]]; then
+        cp -p "${BACKUP_RULE}" "${HOME_GEMINI_RULE}"
+        echo "[还原] 已恢复原有规则至: ${HOME_GEMINI_RULE}"
+    else
+        echo "[还原] 已移除全局中文规则软链接"
     fi
 }
 
+show_status() {
+    echo "============================================================"
+    echo "       Antigravity CLI 中文原生思考增强套件状态"
+    echo "============================================================"
+    if [[ -f "${AGY_BIN}" ]]; then
+        local cur_sha
+        cur_sha="$(calc_sha256 "${AGY_BIN}")"
+        echo "当前 agy 路径  : ${AGY_BIN}"
+        echo "当前 agy 版本  : $("${AGY_BIN}" --version 2>/dev/null || echo '未知')"
+        echo "当前 SHA256    : ${cur_sha}"
+        if [[ -f "${ORIG_BIN}" ]]; then
+            local orig_sha
+            orig_sha="$(calc_sha256 "${ORIG_BIN}")"
+            if [[ "${cur_sha}" == "${orig_sha}" ]]; then
+                echo "二进制补丁状态 : 隔离/原版模式 (系统 agy 未打补丁)"
+            else
+                echo "二进制补丁状态 : 已启用全局中文思考槽位合流与防截断补丁"
+            fi
+        fi
+    fi
+    if [[ -L "${GLOBAL_CONFIG_RULE}" || -f "${GLOBAL_CONFIG_RULE}" ]]; then
+        echo "全局规则状态   : 已启用 (${GLOBAL_CONFIG_RULE})"
+    else
+        echo "全局规则状态   : 未启用"
+    fi
+    echo "============================================================"
+}
+
 case "${1:-status}" in
+    enable|enable-global)
+        deploy_zh_bin ""
+        ;;
+    enable-ui)
+        deploy_zh_bin "--ui-zh"
+        ;;
+    apply-rules)
+        install_rules
+        ;;
+    disable|restore)
+        restore_original
+        ;;
     status)
         show_status
         ;;
-    apply-rules)
-        apply_rules
-        ;;
-    enable-global)
-        enable_global
-        ;;
-    restore)
-        restore_original
-        ;;
     *)
-        echo "用法: $0 {status|apply-rules|enable-global|restore}"
-        exit 2
+        usage
+        exit 1
         ;;
 esac
