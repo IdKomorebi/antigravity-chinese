@@ -60,7 +60,29 @@ bic x8, x8, x8, asr #63
 
 ---
 
-## 三、 性能与延迟评估
+## 三、 Linux `x86_64` (`agy v1.5.9`) 十处核心二进制补丁对照与多模型兼容
+
+在 Linux `x86_64` ELF (`agy v1.5.9`) 中，`.rodata` 与 `.text` 均保持 `VirtAddr == FileOffset`（`.text` 基址 `0x06fed000`，Go `gopclntab` 函数表 `textStart = 0x06fed080`）。10 处核心补丁位点与 macOS ARM64 架构 1:1 严格同构：
+
+| 序号 | 文件偏移 (`VA == Offset`) | 大小 | 所属函数 | 机器码改造说明 |
+| :---: | :--- | :---: | :--- | :--- |
+| 1 | `0x0a455f00` | 23B | `glamour.WithWordWrap.func1` | 当折行宽度 `%rcx > 20` 时执行 `sub $0x4, %rcx`，消除中文引用块右侧边缘吞字 |
+| 2 | `0x0a54be00` | 101B | `render.stepContent` | 当 `0 < Response.len <= 640` 且满足 `ToolCalls.len > 0` 或 `step.Status != 3` 时，将 `(%r11, %r12)` 指向中文 `Response` 并置 `%r10 = -1` |
+| 3 | `0x0a54cac7` | 2B | `render.stepContent` | 将 `je 0xa54cb25` (`74 5c`) 升级为 `jle` (`7e 5c`)，确保 `%r10 == -1` 合流态进入 `collapsedThinkingSnippet` 渲染浅灰第二行摘要 |
+| 4 | `0x0a54c4ee` | 2B | `render.stepContent` | 将 `verbosity == "low"` 分支的 `je 0xa54c50e` (`74 1e`) 升级为 `jle` (`7e 1e`)，防止低详细度跳过已合流思考块 |
+| 5 | `0x0a54cd05` | 6B | `render.stepContent` | 在流式与完成态总汇聚闸门将 `je 0xa54cf58` (`0f 84`) 升级为 `jle` (`0f 8e`)，自动跳过下方 `renderPlannerBody` 重复白字渲染 |
+| 6 | `0x0a5483dc` | 2B | `render.collapsedThinkingSnippet` | 将 `jl 0xa548410` (`7c 32`) 改为 `jmp` (`eb 32`)，禁止裁剪 `\n\n` 前序段落 |
+| 7 | `0x0a54842a` | 5B | `render.collapsedThinkingSnippet` | 将 `callq fitDetailText` 替换为 5B `nop`，废除折叠槽单行 `...` 腰斩 |
+| 8 | `0x0a54c2cf` | 5B | `render.stepContent` | 将流式纯思考分支的 `callq fitDetailText` 替换为 5B `nop`，流式阶段同样完整折行 |
+| 9 | `0x0a5345b8` | 5B | `render.semanticMilestoneLines` | 移除 `○ Thought for Xs (...)` 分支 1 的 `fitDetailText` 单行截断 |
+| 10 | `0x0a5347d9` | 5B | `render.semanticMilestoneLines` | 移除 `○ Thought for Xs (...)` 分支 2 的 `fitDetailText` 单行截断 |
+
+### Claude 模型兼容实测结论
+经核验 `Claude Opus 4.6` 与 `Claude Opus 5.5` 真实会话日志：Anthropic API 默认开启服务端 Summarized Thinking（常将思考摘要重写为英文），且在连续工具调用轮次常返回空 `thinking=""`、仅在 `content` 输出中文说明。v2 合流补丁将中文伴随文本直接注入 `(%r11, %r12)` 思考槽位并抑制重复正文后，Claude 与 Gemini 均可获得 100% 原生一致的浅灰中文思考槽位体验，无需按模型单独分支处理。
+
+---
+
+## 四、 性能与延迟评估
 
 - **零额外网络往返**：无本地代理转发或二次翻译请求。
 - **极低 Token 开销**：每步仅生成约 25~55 个中文 Token（耗时约 `0.15s ~ 0.35s`），相比动辄 5s~30s 的内部推理与工具执行开销几乎零感知，且因无需在下方额外输出冗长过渡段，整体交互更加紧凑利落。

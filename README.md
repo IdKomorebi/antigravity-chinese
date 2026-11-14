@@ -2,24 +2,24 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![macOS ARM64: v1.5.4](https://img.shields.io/badge/macOS_ARM64-agy_v1.5.4-brightgreen.svg)](https://github.com/IdKomorebi/antigravity-chinese)
-[![Linux x86_64: v1.5.0](https://img.shields.io/badge/Linux_x86__64-agy_v1.5.0-orange.svg)](https://github.com/IdKomorebi/antigravity-chinese)
+[![Linux x86_64: v1.5.9](https://img.shields.io/badge/Linux_x86__64-agy_v1.5.9-brightgreen.svg)](https://github.com/IdKomorebi/antigravity-chinese)
 
 > **在不损失模型内部 `<thought>` 推理深度的前提下，将自然、洗练的中文思考直接合流渲染在 Antigravity CLI 原生 `▸ Thought for Xs, Y tokens` 槽位内，彻底告别云端英文摘要、单行 `...` 腰斩与机械“我将先…”播报。**
 
 ---
 
-## 🆕 本分支（v2 原生思考槽位合流版）与原仓库 `main` 分支有什么区别？
+## 🆕 v2 原生思考槽位合流版与早期 v1 方案有什么区别？
 
-原仓库 `main` 分支早期针对 Linux `x86_64` (`v1.5.0`) 采用了“压缩内部 `<thought>` 长度 + 在工具下方额外输出白字简报”的折中方案；本分支（`feat/macos-arm64-native-thought-fusion`）针对 **macOS Apple Silicon (`arm64`, `agy v1.5.4`)** 完成了底层渲染器级重构，并向下兼容原有 Linux 环境：
+早期 v1 方案（标签 `v1.5.0-legacy`）针对 Linux `x86_64` (`v1.5.0`) 采用了“压缩内部 `<thought>` 长度 + 在工具下方额外输出白字简报”的折中思路；当前主干 **v2 原生思考槽位合流版** 已在 **macOS Apple Silicon (`arm64`, `agy v1.5.4`)** 与 **Linux (`x86_64`, `agy v1.5.9`)** 双平台完成底层渲染器级重构（同时通吃 Gemini 与 Claude 全系模型）：
 
-| 改进点 | 之前仓库（`main` 分支 v1） | 当前分支（v2 原生思考槽位合流版） |
+| 改进点 | 早期 v1 方案 (`v1.5.0-legacy`) | 当前主干（v2 跨平台原生思考槽位合流版） |
 | :--- | :--- | :--- |
-| **1. 中文思考渲染位置** | `▸ Thought` 仍依赖云端摘要器（含英文符号时极易变回英文），中文说明只能作为**额外白字正文**夹在工具调用下方 | **客户端二进制槽位合流（`0x02c78624`）**：主模型生成的自然中文思考浓缩**直接挂载在 `▸ Thought for Xs, Y tokens` 正下方原生浅灰槽位**，自动抑制下方重复白字正文 |
-| **2. 模型推理深度** | 为迁就云端摘要器，规则限制 `<thought>` 只能写“2~3 句不换行单段中文且禁写长代码”，压缩了复杂任务推演空间 | **100% 解放 `<thought>` 完整推理能力**：内部思考可自由进行多步架构推演、代码与汇编计算，零智力折损 |
-| **3. 流式防闪烁与防吞字** | 无槽位合流状态机 | **流式态 + 工具态双锚定（`0x02c78624` + `0x02c78fe8`）**：从流式第一个汉字起直入 `▸ Thought` 槽位，并通过 `cmp x2, #0; b.le` 修复 `x8=-1` 跳过第二行的底层陷阱，彻底杜绝“先吐在正文、再消失不见” |
-| **4. 解除 `...` 单行腰斩** | `patch_agy.py` 仅保留了 Glamour 4 列右边距补丁，长思考仍被单行 `...` 截断 | 新增 4 处二进制反截断补丁（`0x02c7558c`、`0x02c755d4`、`0x02c64c80`、`0x02c64e58`），`▸ Thought` 与 `○ Thought` 均**完整保留并随终端宽度自动折行** |
+| **1. 中文思考渲染位置** | `▸ Thought` 仍依赖云端摘要器（含英文符号时极易变回英文），中文说明只能作为**额外白字正文**夹在工具调用下方 | **客户端二进制槽位合流（macOS `0x02c78624` / Linux `0x0a54be00`）**：主模型生成的自然中文思考浓缩**直接挂载在 `▸ Thought for Xs, Y tokens` 正下方原生浅灰槽位**，自动抑制下方重复白字正文 |
+| **2. 模型推理深度与多模型兼容** | 为迁就云端摘要器，规则限制 `<thought>` 只能写“2~3 句不换行单段中文”，且 Claude 模型服务端英文摘要 / 空 `thinking` 仍会露馅 | **100% 解放 `<thought>` 完整推理能力 + 通吃 Gemini & Claude**：内部思考自由深度推演零折损；无论是 Gemini/Claude 的英文服务端摘要还是 Claude 工具步空 `thinking`，均统一渲染为原生中文思考槽 |
+| **3. 流式防闪烁与防吞字** | 无槽位合流状态机 | **流式态 + 工具态双锚定**：从流式第一个汉字起直入 `▸ Thought` 槽位，并通过 `b.le` / `jle` 修复负值标记跳过第二行的底层陷阱，彻底杜绝“先吐在正文、再消失不见” |
+| **4. 解除 `...` 单行腰斩** | `patch_agy.py` 仅保留了 Glamour 4 列右边距补丁，长思考仍被单行 `...` 截断 | 完整修补 `collapsedThinkingSnippet`、流式纯思考与 `semanticMilestoneLines` 的 `fitDetailText` 截断调用，`▸ Thought` 与 `○ Thought` 均**完整保留并随终端宽度自动折行** |
 | **5. 思考文风与旧会话触发** | 易写成“我将先…接下来我将…”的机械第一人称动作报幕 | **100% 触发必达 + 100% 自然浓缩**：即使在几百步的历史恢复会话中也确保每步工具调用稳定输出中文思考，同时拒绝死板三段式模板，保持原生 Thought Summarizer 般自然洗练的推理摘要感 |
-| **6. 跨平台与系统适配** | 仅支持 Linux `x86_64` (`v1.5.0`)，规则仅写入 `~/.gemini/GEMINI.md` | 自动识别 **macOS ARM64 Mach-O (`v1.5.4`)**（含自动 `codesign -f -s -` 重签名与 `agy update` 版本变更保护）与 **Linux `x86_64` (`v1.5.0`)**，并同步挂载新版官方全局规则目录 `~/.gemini/config/GEMINI.md` |
+| **6. 跨平台与系统适配** | 仅支持 Linux `x86_64` (`v1.5.0`)，规则仅写入 `~/.gemini/GEMINI.md` | 完整支持 **macOS ARM64 Mach-O (`v1.5.4`)** 与 **Linux `x86_64` ELF (`v1.5.9`)** 10 处原生思考合流补丁（并向下兼容 `v1.5.0`），自动对齐 `agy update` 版本升级，并通过软链接 `realpath` 去重挂载 `~/.gemini/config/GEMINI.md` |
 
 ---
 
@@ -54,7 +54,7 @@ flowchart LR
 ### 一键全局启用（推荐）
 
 ```bash
-git clone -b feat/macos-arm64-native-thought-fusion https://github.com/IdKomorebi/antigravity-chinese.git ~/.gemini/antigravity-chinese
+git clone https://github.com/IdKomorebi/antigravity-chinese.git ~/.gemini/antigravity-chinese
 cd ~/.gemini/antigravity-chinese
 ./install.sh --global
 ```

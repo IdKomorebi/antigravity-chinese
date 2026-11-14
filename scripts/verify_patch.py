@@ -56,7 +56,7 @@ def main() -> None:
     with open(target_bin, "rb") as f:
         data = f.read()
 
-    profile_name, patches = detect_binary_profile(data[:16], ui_zh=False)
+    profile_name, patches = detect_binary_profile(data, ui_zh=False)
     print(f"  [INFO] 校验目标路径: {target_bin}")
     print(f"  [INFO] 识别平台架构: {profile_name}")
 

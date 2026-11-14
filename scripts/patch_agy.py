@@ -7,6 +7,9 @@ Antigravity CLI 中文原生思考槽位合流与渲染修复补丁引擎 (v2 �
 - macOS Apple Silicon (arm64 Mach-O, agy v1.5.4)：
   10 处核心二进制补丁（原生思考槽位中文合流 + 流式防闪烁/防吞没 + 解除 '...' 截断 + Glamour 右边距防吞字）
   + 可选 5 处 UI 状态词条汉化 (--ui-zh)，并自动执行 codesign -f -s - 重签名。
+- Linux x86_64 (ELF, agy v1.5.9)：
+  10 处核心二进制补丁（原生思考槽位中文合流 + 流式/完成态防重复渲染 + 解除 '...' 截断 + Glamour 右边距防吞字）
+  + 可选 5 处 UI 状态词条汉化 (--ui-zh)。
 - Linux x86_64 (ELF, agy v1.5.0)：
   向下兼容原 main 分支的 Glamour Markdown 安全右边距补丁。
 """
@@ -188,6 +191,151 @@ def get_macos_arm64_v154_ui_patches() -> List[BinaryPatch]:
     return patches
 
 
+def get_linux_x86_64_v159_core_patches() -> List[BinaryPatch]:
+    """Linux x86_64 (agy v1.5.9) 10 处原生思考槽位中文合流与反截断核心补丁"""
+    patches: List[BinaryPatch] = [
+        # 1. Glamour Markdown 折行预留 4 列安全右边距 (WithWordWrap.func1 @ 0x0a455f00, 23B)
+        BinaryPatch(
+            name="markdown_safe_wordwrap_margin",
+            offset=0x0A455F00,
+            original=bytes.fromhex("488b4a084889482031c031dbc3cccccccccccccccccccc"),
+            patched=bytes.fromhex("488b4a084883f9147e044883e9044889482031c031dbc3"),
+            description="为 Glamour Markdown 自动折行预留 4 列安全右边距，根治中文引用块与右侧边缘吞字",
+        ),
+        # 2a. 原生思考槽位中文思维链合流引擎 (stepContent @ 0x0a54be00, 101B)
+        BinaryPatch(
+            name="native_thought_slot_zh_fusion",
+            offset=0x0A54BE00,
+            original=bytes.fromhex(
+                "4885d2742348837a4000740e904c8b5a384c8b62404885c0eb1d904c8b5a284c"
+                "8b62304885c0eb0f4885c041bc0000000041bb0000000074194c39505875064c"
+                "8b5060eb0641ba0000000075054d8b12eb034531d24d85d274084d8b52106690"
+                "eb034531d2"
+            ),
+            patched=bytes.fromhex(
+                "4885d2744e4c8b5a084c8b62104d89e24d85e47e274981fc800200007f1e4883"
+                "baa000000000750b4885c0740f83780c03740949c7c2ffffffffeb204c8b5a38"
+                "4c8b62404d85e475134c8b5a284c8b6230eb094531d24531db4531e490909090"
+                "9090909090"
+            ),
+            description="在流式阶段及工具调用步骤将主模型生成的中文思考摘要直接注入 ▸ Thought 槽位，杜绝先吐在正文再消失",
+        ),
+        # 2b. 折叠思考块第二行摘要渲染修复 (stepContent @ 0x0a54cac7, 2B)
+        BinaryPatch(
+            name="step_content_render_fused_snippet",
+            offset=0x0A54CAC7,
+            original=bytes.fromhex("745c"),
+            patched=bytes.fromhex("7e5c"),
+            description="将 je 0xa54cb25 升级为 jle 0xa54cb25，确保 %r10=-1 合流态正常渲染 ▸ Thought 第二行中文摘要",
+        ),
+        # 2c. low 详细度下保留已合流思考块 (stepContent @ 0x0a54c4ee, 2B)
+        BinaryPatch(
+            name="step_content_low_verbosity_keep_thought",
+            offset=0x0A54C4EE,
+            original=bytes.fromhex("741e"),
+            patched=bytes.fromhex("7e1e"),
+            description="将 verbosity=low 分支中的 je 升级为 jle，确保已合流中文思考块同样正常渲染而不被跳过",
+        ),
+        # 3. 流式与完成态汇聚点重复正文抑制器 (stepContent @ 0x0a54cd05, 6B)
+        BinaryPatch(
+            name="step_content_suppress_dup_body",
+            offset=0x0A54CD05,
+            original=bytes.fromhex("0f844d020000"),
+            patched=bytes.fromhex("0f8e4d020000"),
+            description="在流式与完成态汇聚闸门将 je 0xa54cf58 升级为 jle 0xa54cf58，自动抑制下方重复白字正文",
+        ),
+        # 4a. 折叠思考块保留完整段落 (collapsedThinkingSnippet @ 0x0a5483dc, 2B)
+        BinaryPatch(
+            name="collapsed_thinking_keep_paragraphs",
+            offset=0x0A5483DC,
+            original=bytes.fromhex("7c32"),
+            patched=bytes.fromhex("eb32"),
+            description="禁止 collapsedThinkingSnippet 仅截取末段文本，完整保留全段中文思考",
+        ),
+        # 4b. 折叠思考块取消 fitDetailText 单行省略号截断 (collapsedThinkingSnippet @ 0x0a54842a, 5B)
+        BinaryPatch(
+            name="collapsed_thinking_no_ellipsis_trunc",
+            offset=0x0A54842A,
+            original=bytes.fromhex("e831b1feff"),
+            patched=bytes.fromhex("0f1f440000"),
+            description="移除 collapsedThinkingSnippet 中的 fitDetailText 截断调用，按终端宽度自动折行",
+        ),
+        # 4c. 流式纯思考分支取消 fitDetailText 单行省略号截断 (stepContent @ 0x0a54c2cf, 5B)
+        BinaryPatch(
+            name="live_thinking_no_ellipsis_trunc",
+            offset=0x0A54C2CF,
+            original=bytes.fromhex("e88c72feff"),
+            patched=bytes.fromhex("0f1f440000"),
+            description="移除流式纯思考阶段 fitDetailText 单行截断调用，流式思考同样完整自动折行",
+        ),
+        # 5a. 里程碑思考摘要反截断 #1 (semanticMilestoneLines @ 0x0a5345b8, 5B)
+        BinaryPatch(
+            name="milestone_thinking_no_trunc_1",
+            offset=0x0A5345B8,
+            original=bytes.fromhex("e8a3efffff"),
+            patched=bytes.fromhex("0f1f440000"),
+            description="移除 semanticMilestoneLines 分支 1 的 fitDetailText 单行截断",
+        ),
+        # 5b. 里程碑思考摘要反截断 #2 (semanticMilestoneLines @ 0x0a5347d9, 5B)
+        BinaryPatch(
+            name="milestone_thinking_no_trunc_2",
+            offset=0x0A5347D9,
+            original=bytes.fromhex("e882edffff"),
+            patched=bytes.fromhex("0f1f440000"),
+            description="移除 semanticMilestoneLines 分支 2 的 fitDetailText 单行截断",
+        ),
+    ]
+    for p in patches:
+        assert len(p.original) == len(p.patched), f"Patch {p.name} length mismatch!"
+    return patches
+
+
+def get_linux_x86_64_v159_ui_patches() -> List[BinaryPatch]:
+    """可选的 Linux x86_64 (agy v1.5.9) .rodata 界面标签等长中文替换（仅在 --ui-zh 模式下启用）"""
+    raw_items = [
+        (
+            "ui_thought_for_tokens",
+            0x06365E00,
+            b"Thought for %s, %s tokens",
+            "思考耗时 %s · %s 词元".encode("utf-8").ljust(25, b" "),
+            "将 'Thought for %s, %s tokens' 汉化为 '思考耗时 %s · %s 词元'",
+        ),
+        (
+            "ui_thought_for_s",
+            0x0629636E,
+            b"Thought for %s",
+            "思考耗时 %s".encode("utf-8").ljust(14, b" "),
+            "将 'Thought for %s' 汉化为 '思考耗时 %s'",
+        ),
+        (
+            "ui_thought_process",
+            0x062AC343,
+            b"Thought Process",
+            "思考推理过程   ".encode("utf-8"),
+            "将 'Thought Process' 汉化为 '思考推理过程'",
+        ),
+        (
+            "ui_ctrl_o_expand",
+            0x062C18FF,
+            b"ctrl+o to expand",
+            "ctrl+o 展开详情 ".encode("utf-8"),
+            "将 'ctrl+o to expand' 汉化为 'ctrl+o 展开详情'",
+        ),
+        (
+            "ui_ctrl_o_collapse",
+            0x062E950F,
+            b"ctrl+o to collapse",
+            "ctrl+o 折叠收起   ".encode("utf-8"),
+            "将 'ctrl+o to collapse' 汉化为 'ctrl+o 折叠收起'",
+        ),
+    ]
+    patches: List[BinaryPatch] = []
+    for name, off, orig, rep, desc in raw_items:
+        assert len(orig) == len(rep), f"UI patch {name} byte length mismatch"
+        patches.append(BinaryPatch(name=name, offset=off, original=orig, patched=rep, description=desc))
+    return patches
+
+
 def get_linux_x86_64_v150_patches() -> List[BinaryPatch]:
     """向下兼容原 main 分支的 Linux x86_64 (agy v1.5.0) 补丁位点"""
     return [
@@ -208,7 +356,26 @@ def detect_binary_profile(data: bytes, ui_zh: bool = False) -> Tuple[str, List[B
             patches.extend(get_macos_arm64_v154_ui_patches())
         return "macOS ARM64 Mach-O (agy v1.5.4)", patches
     if data[:4] == ELF_MAGIC:
-        return "Linux x86_64 ELF (agy v1.5.0)", get_linux_x86_64_v150_patches()
+        v159_core = get_linux_x86_64_v159_core_patches()
+        p0 = v159_core[0]
+        if len(data) >= p0.offset + len(p0.original):
+            probe = bytes(data[p0.offset : p0.offset + len(p0.original)])
+            if probe in (p0.original, p0.patched):
+                patches = list(v159_core)
+                if ui_zh:
+                    patches.extend(get_linux_x86_64_v159_ui_patches())
+                return "Linux x86_64 ELF (agy v1.5.9)", patches
+        v150 = get_linux_x86_64_v150_patches()
+        p_old = v150[0]
+        if len(data) >= p_old.offset + len(p_old.original):
+            probe_old = bytes(data[p_old.offset : p_old.offset + len(p_old.original)])
+            if probe_old in (p_old.original, p_old.patched):
+                return "Linux x86_64 ELF (agy v1.5.0)", v150
+        # 若只传入了文件头或未知新版本，默认按 v1.5.9 校验以输出详细诊断信息
+        patches = list(v159_core)
+        if ui_zh:
+            patches.extend(get_linux_x86_64_v159_ui_patches())
+        return "Linux x86_64 ELF (agy v1.5.9)", patches
     raise RuntimeError(f"无法识别的可执行文件头魔数: {data[:4].hex()}")
 
 
@@ -220,8 +387,8 @@ def get_core_patches() -> List[BinaryPatch]:
 def get_patches(binary_path: str = DEFAULT_SOURCE) -> List[BinaryPatch]:
     if os.path.exists(binary_path):
         with open(binary_path, "rb") as f:
-            head = f.read(16)
-        _, patches = detect_binary_profile(head, ui_zh=False)
+            blob = f.read()
+        _, patches = detect_binary_profile(blob, ui_zh=False)
         return patches
     return get_macos_arm64_v154_core_patches()
 
@@ -283,7 +450,7 @@ def apply_patches(
     with open(base_source, "rb") as f:
         data = bytearray(f.read())
 
-    profile_name, patches = detect_binary_profile(bytes(data[:16]), ui_zh=ui_zh)
+    profile_name, patches = detect_binary_profile(data, ui_zh=ui_zh)
     print(f"[识别] 目标平台架构: {profile_name}")
     print(f"[检查] 基准二进制  : {base_source}")
     print(f"[检查] 共加载 {len(patches)} 项补丁位点，开始逐项校验字节特征...")

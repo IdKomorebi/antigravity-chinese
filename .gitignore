@@ -2,6 +2,7 @@
 bin/agy
 bin/agy.orig
 bin/agy-zh
+bin/GEMINI.merged.md
 bin/*.bak
 bin/*.tmp
 
