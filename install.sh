@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Antigravity CLI 中文原生思考槽位合流与渲染修复套件 (antigravity-chinese v2)
-# 支持 macOS Apple Silicon (arm64, v1.5.4) 与 Linux (x86_64, v1.5.0)
+# Antigravity CLI 原生思考槽位中文合流与渲染修复套件 (antigravity-chinese)
+# 支持 macOS Apple Silicon (arm64, v1.5.4+) 与 Linux (x86_64, v1.5.11+ / 自适应)
 # ============================================================================
 set -euo pipefail
 
@@ -19,10 +19,10 @@ NC='\033[0m'
 
 print_banner() {
     echo -e "${CYAN}============================================================${NC}"
-    echo -e "${CYAN}   Antigravity CLI 中文原生思考合流与渲染修复套件 (v2)      ${NC}"
+    echo -e "${CYAN}   Antigravity CLI 原生思考槽位中文合流与渲染修复套件       ${NC}"
     echo -e "${CYAN}   - 原生 ▸ Thought 槽位中文合流 | 杜绝流式先吐后吞闪烁     ${NC}"
     echo -e "${CYAN}   - 解除单行 '...' 省略号腰斩   | 修复 Markdown 右侧吞字   ${NC}"
-    echo -e "${CYAN}   - 解放内部完整推理深度        | 自动 Mach-O 代码重签名   ${NC}"
+    echo -e "${CYAN}   - 100% 满血推理 (Gemini & Claude) | macOS & Linux 原生   ${NC}"
     echo -e "${CYAN}============================================================${NC}"
 }
 

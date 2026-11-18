@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Antigravity CLI 中文原生思考合流套件 — 状态检查、规则应用与安全切换工具 (跨平台版)
+# Antigravity CLI 原生思考槽位中文合流套件 — 状态检查、规则挂载与安全切换工具
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,6 +11,7 @@ fi
 ORIG_BIN="${PROJECT_ROOT}/bin/agy.orig"
 ZH_BIN="${PROJECT_ROOT}/bin/agy-zh"
 RULE_SRC="${PROJECT_ROOT}/rules/GEMINI_ZH_BEST_PRACTICES.md"
+LOCAL_EXTRA_RULE="${HOME}/.gemini/GEMINI.local.md"
 MERGED_RULE="${PROJECT_ROOT}/bin/GEMINI.merged.md"
 GLOBAL_CONFIG_DIR="${HOME}/.gemini/config"
 GLOBAL_CONFIG_RULE="${GLOBAL_CONFIG_DIR}/GEMINI.md"
@@ -34,12 +35,10 @@ usage() {
 用法: $(basename "$0") <命令>
 
 命令:
-  enable         启用全局中文增强版 (保留官方原生 Thought for 标签，底层合流自然中文思考)
+  enable         启用全局中文原生思考增强版 (保留官方 Thought for 标签，底层合流自然中文思考)
   enable-ui      启用全量 UI 汉化模式 (同时汉化 Thought for / ctrl+o 等界面状态词条)
-  enable-global  同 enable (向下兼容原脚本参数)
   apply-rules    仅挂载全局中文思考规则 (~/.gemini/config/GEMINI.md & ~/.gemini/GEMINI.md)
-  disable        完全恢复官方原版 agy 二进制与原有规则配置
-  restore        同 disable (向下兼容原脚本参数)
+  restore        完全恢复官方原版 agy 二进制与原有规则配置
   status         查看当前 agy 二进制、代码签名与全局中文规则状态
 EOF
 }
@@ -75,9 +74,10 @@ install_rules() {
         echo "[备份] 已将原有 ~/.gemini/config/GEMINI.md 备份至: ${BACKUP_CONFIG_RULE}"
     fi
     local target_rule="${RULE_SRC}"
-    if [[ -x "${HOME}/miniconda3/bin/tectonic" ]]; then
+    if [[ -f "${LOCAL_EXTRA_RULE}" && -s "${LOCAL_EXTRA_RULE}" ]]; then
         cp "${RULE_SRC}" "${MERGED_RULE}"
-        printf '\n- **LaTeX 编译工具**：本机已安装 Tectonic（路径：`%s/miniconda3/bin/tectonic`），将 LaTeX 编译为 PDF 时可直接使用 Tectonic。\n' "${HOME}" >> "${MERGED_RULE}"
+        printf '\n' >> "${MERGED_RULE}"
+        cat "${LOCAL_EXTRA_RULE}" >> "${MERGED_RULE}"
         target_rule="${MERGED_RULE}"
     fi
     ln -sf "${target_rule}" "${GLOBAL_CONFIG_RULE}"
@@ -100,7 +100,7 @@ deploy_zh_bin() {
     fi
     mv -f "${tmp_bin}" "${AGY_BIN}"
     install_rules
-    echo "[完成] 已激活中文增强版: ${AGY_BIN} ($("${AGY_BIN}" --version 2>/dev/null || echo 'OK'))"
+    echo "[完成] 已激活中文原生思考增强版: ${AGY_BIN} ($("${AGY_BIN}" --version 2>/dev/null || echo 'OK'))"
 }
 
 restore_original() {
@@ -128,7 +128,7 @@ restore_original() {
 
 show_status() {
     echo "============================================================"
-    echo "       Antigravity CLI 中文原生思考增强套件状态"
+    echo "       Antigravity CLI 原生思考槽位中文汉化套件状态"
     echo "============================================================"
     if [[ -f "${AGY_BIN}" ]]; then
         local cur_sha
@@ -142,7 +142,7 @@ show_status() {
             if [[ "${cur_sha}" == "${orig_sha}" ]]; then
                 echo "二进制补丁状态 : 隔离/原版模式 (系统 agy 未打补丁)"
             else
-                echo "二进制补丁状态 : 已启用全局中文思考槽位合流与防截断补丁"
+                echo "二进制补丁状态 : 已启用原生思考槽位合流与防截断补丁"
             fi
         fi
     fi
